@@ -1,0 +1,3 @@
+.venv
+db_access.py
+__pycache__/
