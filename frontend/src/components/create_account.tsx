@@ -1,5 +1,6 @@
-import { useState } from "react"
+import { useState } from "react";
 import axios from 'axios';
+import MainPage from './main_page';
 interface AccountDetails {
     username: string,
     password: string,
@@ -9,25 +10,42 @@ interface AccountDetails {
     phone_number: string
 }
 
-function CreateAccount(): JSX.Element {
-    const url = "http://localhost:8000/create_account"
+export default function CreateAccount(): JSX.Element {
+    const url = "http://127.0.0.1:5000/create_account"
     const [accountDetails, setAccountDetails] = useState<AccountDetails>({username:'', password:'', name:'', surname:'', email:'', phone_number:''})
-    
-    const handleSubmit = (event: React.FormEvent<HTMLFormElement>): JSX.Element => {
+    const [isCreated, setIsCreated] = useState<boolean>(false)
+    const handleSubmit = (event: React.FormEvent<HTMLFormElement>): void => {
         event.preventDefault();
         if (accountDetails) {
-            axios.post(url, accountDetails).then((response) => console.log(response)).catch((error) => console.error(error))
-            return <p>Account created!</p>
+            axios.post(url, accountDetails)
+                .then((response) => {
+                    console.log(response);
+                    setIsCreated(true);
+                })
+                .catch((error) => {
+                    console.error(error);
+                    alert("Failed to create account. Please check the details.");
+                })
+                .finally(() => {
+                    setAccountDetails({
+                        username: '',
+                        password: '',
+                        name: '',
+                        surname: '',
+                        email: '',
+                        phone_number: ''
+                    });
+                });
         }
-        return <p>Wrong account information</p>
-    }
+    };
+    if (!isCreated){
     return (
         <form onSubmit={(event) => handleSubmit(event)}>
             <input type="text" placeholder="username" value={accountDetails?.username} onChange={(event) => setAccountDetails((previous) => ({
                 ...previous,
                 username: event.target.value}))}/>
 
-            <input type="text" placeholder="password" value={accountDetails?.password} onChange={(event) => setAccountDetails((previous) => ({
+            <input type="password" placeholder="password" value={accountDetails?.password} onChange={(event) => setAccountDetails((previous) => ({
                 ...previous,
                 password: event.target.value}))}/>
             <input type="text" placeholder="name" value={accountDetails?.name} onChange={(event) => setAccountDetails((previous) => ({
@@ -43,8 +61,11 @@ function CreateAccount(): JSX.Element {
                 ...previous,
                 phone_number: event.target.value}))}/>
 
-            <button>Create Account</button>
+            <button type="submit">Create Account</button>
         </form>
-        
-    )
+        )
+    } else {
+        alert("Successful account creation")
+        return <MainPage/>
+    }
 }

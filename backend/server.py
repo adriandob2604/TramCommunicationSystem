@@ -1,75 +1,114 @@
 from flask import Flask, jsonify, request
 from engine import Session
 from database import Account
+from flask_cors import CORS
 import hashlib
 
 app = Flask(__name__)
-session = Session()
-
-
+CORS(app)
 @app.route('/create_account', methods=["POST"])
 def create_account():
-    account_information = request.get_json()
-    username, password, name, surname, email, phone_number = account_information['username'], account_information['password'], 
-    account_information["name"], account_information["surname"],
-    account_information["email"], account_information["phone_number"]
-    if name and surname and email and phone_number:
+    session = Session()
+    try:
+        account_information = request.get_json()
+        required_fields = ["username", "password", "name", "surname", "email", "phone_number"]
+        if not all(field in account_information for field in required_fields):
+            return jsonify({"message": "Missing account information"}), 400
+
+        username = account_information["username"]
+        password = account_information["password"]
+        name = account_information["name"]
+        surname = account_information["surname"]
+        email = account_information["email"]
+        phone_number = account_information["phone_number"]
+
+        if session.query(Account).filter((Account.username == username) | (Account.email == email)).first():
+            return jsonify({"message": "Account with this username or email already exists"}), 400
+
         hash = hashlib.sha256()
         hash.update(password.encode())
         hashed_password = hash.hexdigest()
-        new_account = Account(username, hashed_password, name, surname, email, phone_number)
-        if not session.query(Account).filter(Account['surname'] == surname):
-            session.add(new_account)
-            session.commit()
-            session.close()
-            return jsonify({"message": "Account successfully created"}), 201
-        return jsonify({"message": "Account already exists"}), 400
-    return jsonify({"message": "Enter valid account information"}), 400
-@app.route('/accounts/<id>', methods=["GET"])
+
+        new_account = Account(username=username, password=hashed_password, name=name, surname=surname, email=email, phone_number=phone_number)
+        session.add(new_account)
+        session.commit()
+        return jsonify({"message": "Account successfully created"}), 201
+    except Exception as e:
+        return jsonify({"message": f"An error occurred: {str(e)}"}), 500
+    finally:
+        session.close()
+
+@app.route('/accounts/<int:id>', methods=["GET"])
 def account(id):
-    account = session.query(Account).filter_by(id=id).first()
-    if account:
-        return jsonify({"message": "Account found!", "account": account}), 200
-    return jsonify({"message": "Account not found"}), 404
+    session = Session()
+    try:
+        account = session.query(Account).filter_by(id=id).first()
+        if account:
+            return jsonify({
+                "message": "Account found!",
+                "account": {
+                    "id": account.id,
+                    "username": account.username,
+                    "name": account.name,
+                    "surname": account.surname,
+                    "email": account.email,
+                    "phone_number": account.phone_number
+                }
+            }), 200
+        return jsonify({"message": "Account not found"}), 404
+    finally:
+        session.close()
 
-@app.route('/accounts/<id>', methods=["PATCH"])
+@app.route('/accounts/<int:id>', methods=["PATCH"])
 def update_account(id):
-    update_data = request.get_json()
-    account = session.query(Account).filter_by(id=id)
-    if account:
-        if update_data:
+    session = Session()
+    try:
+        update_data = request.get_json()
+        account = session.query(Account).filter_by(id=id).first()
+        if account:
             if 'name' in update_data:
-                account['name'] = update_data['name']
+                account.name = update_data['name']
             if 'surname' in update_data:
-                account['surname'] = update_data['surname']
+                account.surname = update_data['surname']
             if 'email' in update_data:
-                account['email'] = update_data['email']
+                account.email = update_data['email']
             if 'phone_number' in update_data:
-                account['phone_number'] = update_data['phone_number']
+                account.phone_number = update_data['phone_number']
+            session.commit()
             return jsonify({"message": "Account successfully updated"}), 200
-        return jsonify({"message": "No update data"}), 400
-    return jsonify({"message": "Account not found"}), 404
+        return jsonify({"message": "Account not found"}), 404
+    finally:
+        session.close()
 
-@app.route('/accounts/<id>', methods=["DELETE"])
+@app.route('/accounts/<int:id>', methods=["DELETE"])
 def delete_account(id):
-    account = session.query(Account).filter_by(id=id)
-    if account:
-        session.pop(account)
-        return jsonify({"message": "Account successfully deleted"}), 200
-    return jsonify({"message": "Account not found"}), 404
+    session = Session()
+    try:
+        account = session.query(Account).filter_by(id=id).first()
+        if account:
+            session.delete(account)
+            session.commit()
+            return jsonify({"message": "Account successfully deleted"}), 204
+        return jsonify({"message": "Account not found"}), 404
+    finally:
+        session.close()
 
-@app.route('/login')
+@app.route('/login', methods=["POST"])
 def login():
-    login_data = request.get_json()
-    username, password = login_data['username'], login_data['password']
-    hash = hashlib.sha256()
-    hash.update(password.encode())
-    hashed_password = hash.hexdigest()
-    if username and password:
-        if session.query(Account).filter_by(username=username, password=hashed_password):
+    session = Session()
+    try:
+        login_data = request.get_json()
+        username = login_data['username']
+        password = login_data['password']
+        hash = hashlib.sha256()
+        hash.update(password.encode())
+        hashed_password = hash.hexdigest()
+        user = session.query(Account).filter_by(username=username, password=hashed_password).first()
+        if user:
             return jsonify({"message": "Successfully logged in"}), 200
         return jsonify({"message": "Wrong information"}), 400
-    return jsonify({"message": "Enter valid information"}), 400
+    finally:
+        session.close()
 
 if __name__ == '__main__':
     app.run(debug=True)

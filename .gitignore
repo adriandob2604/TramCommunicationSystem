@@ -1,0 +1,15 @@
+.vscode/
+
+
+.metals/
+.bloop/
+.bsp/
+
+
+target/
+project/target/
+project/project/
+
+# IntelliJ IDEA
+.idea/
+*.iml
