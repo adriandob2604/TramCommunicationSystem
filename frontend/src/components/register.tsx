@@ -16,7 +16,8 @@ export default function CreateAccount(): JSX.Element {
     const [isCreated, setIsCreated] = useState<boolean>(false)
     const handleSubmit = (event: React.FormEvent<HTMLFormElement>): void => {
         event.preventDefault();
-        if (accountDetails) {
+        if (accountDetails.username && accountDetails.password && accountDetails.name && 
+            accountDetails.surname && accountDetails.email && accountDetails.phone_number) {
             axios.post(url, accountDetails)
                 .then((response) => {
                     console.log(response);

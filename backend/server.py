@@ -2,7 +2,7 @@ from flask import Flask, jsonify, request
 from engine import Session
 from database import Account
 from flask_cors import CORS
-import hashlib
+from hashFunction import hashFunction
 
 app = Flask(__name__)
 CORS(app)
@@ -25,10 +25,7 @@ def create_account():
         if session.query(Account).filter((Account.username == username) | (Account.email == email)).first():
             return jsonify({"message": "Account with this username or email already exists"}), 400
 
-        hash = hashlib.sha256()
-        hash.update(password.encode())
-        hashed_password = hash.hexdigest()
-
+        hashed_password = hashFunction(password)
         new_account = Account(username=username, password=hashed_password, name=name, surname=surname, email=email, phone_number=phone_number)
         session.add(new_account)
         session.commit()
@@ -93,16 +90,14 @@ def delete_account(id):
     finally:
         session.close()
 
-@app.route('/login', methods=["POST"])
+@app.route('/login', methods=["GET"])
 def login():
     session = Session()
     try:
         login_data = request.get_json()
         username = login_data['username']
         password = login_data['password']
-        hash = hashlib.sha256()
-        hash.update(password.encode())
-        hashed_password = hash.hexdigest()
+        hashed_password = hashFunction(password)
         user = session.query(Account).filter_by(username=username, password=hashed_password).first()
         if user:
             return jsonify({"message": "Successfully logged in"}), 200
