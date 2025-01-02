@@ -1,11 +1,13 @@
 from flask import Flask, jsonify, request
 from engine import Session
-from database import Account
+from database import Account, Login
 from flask_cors import CORS
 from hashFunction import hashFunction
+from session_token import createToken, verify_token
 
 app = Flask(__name__)
 CORS(app)
+token_blacklist = set()
 @app.route('/create_account', methods=["POST"])
 def create_account():
     session = Session()
@@ -90,20 +92,39 @@ def delete_account(id):
     finally:
         session.close()
 
-@app.route('/login', methods=["GET"])
+@app.route('/login', methods=["POST", "DELETE"])
 def login():
     session = Session()
     try:
         login_data = request.get_json()
         username = login_data['username']
         password = login_data['password']
+        if not username and not password:
+            return jsonify({"message": "An error has occurred"}), 400
         hashed_password = hashFunction(password)
         user = session.query(Account).filter_by(username=username, password=hashed_password).first()
         if user:
-            return jsonify({"message": "Successfully logged in"}), 200
+            account_token = createToken(user.id)
+            if request.method == "POST":
+                account_login_session = Login(username, account_token)
+                session.add(account_login_session)
+                session.commit()
+                return jsonify({"message": "Successfully logged in"}), 200
+            if request.method == "DELETE":
+                logged_account = session.query(Login).filter_by(token=account_token).first()
+                if not logged_account:
+                    return jsonify({"message": "User is not logged in"})
+                
+                if account_token not in token_blacklist:
+                    token_blacklist.add(account_token)
+                    session.delete(logged_account)
+                    session.commit()
+                    return jsonify({"Successfully logged out!"}), 200
+                else:
+                    verify_token(account_token, token_blacklist)
+                    return jsonify({"message": "Token is already invalidated"}), 400
         return jsonify({"message": "Wrong information"}), 400
     finally:
         session.close()
-
 if __name__ == '__main__':
     app.run(debug=True)

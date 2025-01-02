@@ -3,3 +3,4 @@ db_access.py
 __pycache__/
 *.db
 hashFunction.py
+session_token.py

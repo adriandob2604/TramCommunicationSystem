@@ -1,6 +1,6 @@
 import { useState } from "react";
 import axios from 'axios';
-import MainPage from './main_page';
+import HomePage from "./HomePage";
 interface AccountDetails {
     username: string,
     password: string,
@@ -10,7 +10,7 @@ interface AccountDetails {
     phone_number: string
 }
 
-export default function CreateAccount(): JSX.Element {
+export default function Register(): JSX.Element {
     const url = "http://127.0.0.1:5000/create_account"
     const [accountDetails, setAccountDetails] = useState<AccountDetails>({username:'', password:'', name:'', surname:'', email:'', phone_number:''})
     const [isCreated, setIsCreated] = useState<boolean>(false)
@@ -67,6 +67,6 @@ export default function CreateAccount(): JSX.Element {
         )
     } else {
         alert("Successful account creation")
-        return <MainPage/>
+        return <HomePage/>
     }
 }

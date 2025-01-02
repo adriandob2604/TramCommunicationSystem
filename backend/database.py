@@ -14,5 +14,8 @@ class Account(Base):
     email: Mapped[str] = mapped_column((String(30)))
     phone_number: Mapped[str] = mapped_column((String(9)))
 
-
+class Login(Base):
+    __tablename__ = "Login"
+    username: Mapped[str] = mapped_column(String(30))
+    token: Mapped[str] = mapped_column(String(64))
 Base.metadata.create_all(engine)
