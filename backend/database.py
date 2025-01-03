@@ -14,8 +14,10 @@ class Account(Base):
     email: Mapped[str] = mapped_column((String(30)))
     phone_number: Mapped[str] = mapped_column((String(9)))
 
-class Login(Base):
-    __tablename__ = "Login"
-    username: Mapped[str] = mapped_column(String(30))
+class BlacklistedToken(Base):
+    __tablename__ = "BlacklistedToken"
+    id: Mapped[int] = mapped_column(primary_key=True)
     token: Mapped[str] = mapped_column(String(64))
+
+
 Base.metadata.create_all(engine)

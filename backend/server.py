@@ -1,13 +1,13 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, make_response
 from engine import Session
-from database import Account, Login
+from database import Account, BlacklistedToken
 from flask_cors import CORS
 from hashFunction import hashFunction
 from session_token import createToken, verify_token
 
 app = Flask(__name__)
 CORS(app)
-token_blacklist = set()
+
 @app.route('/create_account', methods=["POST"])
 def create_account():
     session = Session()
@@ -105,24 +105,22 @@ def login():
         user = session.query(Account).filter_by(username=username, password=hashed_password).first()
         if user:
             account_token = createToken(user.id)
+            blacklistedToken = session.query(BlacklistedToken).filter_by(token=account_token).first()        
             if request.method == "POST":
-                account_login_session = Login(username, account_token)
-                session.add(account_login_session)
-                session.commit()
-                return jsonify({"message": "Successfully logged in"}), 200
+                if not blacklistedToken:
+                    response = make_response(jsonify({"message": "Logged in"}))
+                    response.set_cookie(key=account_token, httponly=True, secure=True, samesite='Lax')
+                    return response
+                return jsonify({"message": "Token is not valid"}), 400
             if request.method == "DELETE":
-                logged_account = session.query(Login).filter_by(token=account_token).first()
-                if not logged_account:
-                    return jsonify({"message": "User is not logged in"})
-                
-                if account_token not in token_blacklist:
-                    token_blacklist.add(account_token)
-                    session.delete(logged_account)
+                if not blacklistedToken:
+                    newBlacklistedToken = BlacklistedToken(token=account_token)
+                    session.add(newBlacklistedToken)
                     session.commit()
+                    response = make_response(jsonify({"message": "Logging off"}))
+                    response.delete_cookie(key=account_token)
                     return jsonify({"Successfully logged out!"}), 200
-                else:
-                    verify_token(account_token, token_blacklist)
-                    return jsonify({"message": "Token is already invalidated"}), 400
+                return jsonify({"message": "Token is already invalidated"}), 400
         return jsonify({"message": "Wrong information"}), 400
     finally:
         session.close()
