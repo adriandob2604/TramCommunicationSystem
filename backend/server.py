@@ -3,7 +3,7 @@ from engine import Session
 from database import Account, BlacklistedToken
 from flask_cors import CORS
 from hashFunction import hashFunction
-from session_token import createToken, verify_token
+from session_token import createToken
 
 app = Flask(__name__)
 CORS(app)
@@ -124,5 +124,6 @@ def login():
         return jsonify({"message": "Wrong information"}), 400
     finally:
         session.close()
+
 if __name__ == '__main__':
     app.run(debug=True)
