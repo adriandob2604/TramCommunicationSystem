@@ -1,5 +1,10 @@
 import { JSX } from "react"
 import Register from "../components/register"
+import RegisterPageLayout from "./layout"
 export default function RegisterPage(): JSX.Element {
-    return <Register />
-}
+
+    return(
+        <RegisterPageLayout>
+         <Register />
+     </RegisterPageLayout>
+)}
