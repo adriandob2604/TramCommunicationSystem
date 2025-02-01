@@ -1,4 +1,5 @@
 from flask import Flask, jsonify, request, make_response
+from flask_socketio import SocketIO, emit
 from engine import Session
 from database import Account, BlacklistedToken
 from flask_cors import CORS
@@ -6,7 +7,8 @@ from hashFunction import hashFunction
 from session_token import createToken
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}}, supports_credentials=True)
+socketio = SocketIO(app, cors_allowed_origins="http://localhost:3000")
 
 @app.route('/create_account', methods=["POST"])
 def create_account():
@@ -92,38 +94,57 @@ def delete_account(id):
     finally:
         session.close()
 
-@app.route('/login', methods=["POST", "DELETE"])
+@app.route('/login', methods=["POST"])
 def login():
     session = Session()
     try:
         login_data = request.get_json()
         username = login_data['username']
         password = login_data['password']
-        if not username and not password:
+        if not username or not password:
             return jsonify({"message": "An error has occurred"}), 400
         hashed_password = hashFunction(password)
         user = session.query(Account).filter_by(username=username, password=hashed_password).first()
         if user:
             account_token = createToken(user.id)
             blacklistedToken = session.query(BlacklistedToken).filter_by(token=account_token).first()        
-            if request.method == "POST":
-                if not blacklistedToken:
-                    response = make_response(jsonify({"message": "Logged in"}))
-                    response.set_cookie(key=account_token, httponly=True, secure=True, samesite='Lax')
-                    return response
-                return jsonify({"message": "Token is not valid"}), 400
-            if request.method == "DELETE":
-                if not blacklistedToken:
-                    newBlacklistedToken = BlacklistedToken(token=account_token)
-                    session.add(newBlacklistedToken)
-                    session.commit()
-                    response = make_response(jsonify({"message": "Logging off"}))
-                    response.delete_cookie(key=account_token)
-                    return jsonify({"Successfully logged out!"}), 200
-                return jsonify({"message": "Token is already invalidated"}), 400
+            if not blacklistedToken:
+                response = make_response(jsonify({"message": "Logged in"}))
+                response.set_cookie('token', account_token, httponly=True, secure=False, samesite='Lax')
+                return response
+            return jsonify({"message": "Token is not valid"}), 400
         return jsonify({"message": "Wrong information"}), 400
     finally:
         session.close()
 
+@app.route('/logout', methods=["DELETE"])
+def logout():
+    session = Session()
+    try:
+        account_token = request.cookies.get('token')
+        blacklistedToken = session.query(BlacklistedToken).filter_by(token=account_token).first()  
+        if not blacklistedToken:
+            newBlacklistedToken = BlacklistedToken(token=account_token)
+            session.add(newBlacklistedToken)
+            session.commit()
+            response = make_response(jsonify({"message": "Logging off"}))
+            response.delete_cookie('token')
+            return response
+        return jsonify({"message": "Token is already invalidated"}), 400
+    finally:
+        session.close()
+
+
+@socketio.on('connect')
+def handle_connect():
+    print("Client connected")
+    emit('message', {'data': "Welcome"})
+
+@socketio.on('clientMessage')
+def handle_message(message):
+    if message:
+        print(f"Message acquired: {message}")
+        emit('message', {'data': "Message acquired"})
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    socketio.run(app, debug=True)

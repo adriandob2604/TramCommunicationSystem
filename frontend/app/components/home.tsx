@@ -1,20 +1,40 @@
 "use client";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import React, { JSX, useState } from "react";
+import axios from "axios";
+import { useRouter } from "next/navigation";
+import React, { JSX, useEffect, useState } from "react";
 
 export default function Home(): JSX.Element {
+  const url = "http://localhost:5000";
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
+  const [stops, setStops] = useState({});
   const router = useRouter();
   const params = new URLSearchParams();
+  useEffect(() => {
+    const storedStops = localStorage.getItem("stops");
+    if (storedStops) {
+      setStops(JSON.parse(storedStops));
+    }
+  }, []);
+  console.log(stops);
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     if (from && to) {
-      const tramRoute = {"from": from, "to": to}
-      params.set('from', from)
-      params.set('to', to)
-      router.push(`tramRoute?${params.toString()}`)
+      params.set("from", from);
+      params.set("to", to);
+      router.push(`tramRoute?${params.toString()}`);
     }
+  }
+  function handleLogout(event: React.MouseEvent<HTMLButtonElement>): void {
+    event.preventDefault();
+    axios
+      .delete(`${url}/logout`, {
+        withCredentials: true,
+      })
+      .then(() => {
+        console.log("Successfully logged out!");
+        router.push("/login");
+      });
   }
   return (
     <main>
@@ -37,6 +57,7 @@ export default function Home(): JSX.Element {
           />
         </div>
         <button type="submit">Find tram</button>
+        <button onClick={(event) => handleLogout(event)}>Logout</button>
       </form>
     </main>
   );

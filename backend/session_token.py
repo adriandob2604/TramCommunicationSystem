@@ -1,8 +1,9 @@
 import jwt
 import datetime
-import secrets
-SECRET_KEY = secrets.token_hex(32)
-
+import os
+from dotenv import load_dotenv
+load_dotenv("key.env")
+SECRET_KEY = os.getenv("SECRET_KEY")
 def createToken(id):
     payload = {
         "id": id,

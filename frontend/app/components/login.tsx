@@ -16,7 +16,7 @@ export default function Login(): JSX.Element {
     event.preventDefault();
     if (login.username && login.password) {
       axios
-        .post(`${url}/login`, { ...login })
+        .post(`${url}/login`, { ...login }, { withCredentials: true })
         .then((response) => {
           console.log(response.status);
           alert("Successfully logged in!");
@@ -58,6 +58,8 @@ export default function Login(): JSX.Element {
         />
         <button type="submit">Log in</button>
       </form>
+      <h3>Don't have an account?</h3>
+      <button onClick={() => router.push("/register")}>Register</button>
     </main>
   );
 }

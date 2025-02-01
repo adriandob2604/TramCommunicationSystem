@@ -19,5 +19,4 @@ class BlacklistedToken(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     token: Mapped[str] = mapped_column(String(64))
 
-
 Base.metadata.create_all(engine)
