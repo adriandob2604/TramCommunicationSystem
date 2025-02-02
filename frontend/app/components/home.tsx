@@ -7,16 +7,25 @@ export default function Home(): JSX.Element {
   const url = "http://localhost:5000";
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
-  const [stops, setStops] = useState({});
+  const [stops, setStops] = useState<string[]>([]);
+  const [filteredFrom, setFilteredFrom] = useState<string[]>(stops);
+  const [filteredTo, setFilteredTo] = useState<string[]>(stops);
   const router = useRouter();
   const params = new URLSearchParams();
   useEffect(() => {
-    const storedStops = localStorage.getItem("stops");
-    if (storedStops) {
-      setStops(JSON.parse(storedStops));
+    async function getStops() {
+      await axios.get(`${url}/stops`).then((response) => {
+        const data = response.data;
+        if (data) {
+          const stopsArray = Object.values(data) as string[];
+          setStops(stopsArray);
+          setFilteredFrom(stopsArray);
+          setFilteredTo(stopsArray);
+        }
+      });
     }
+    getStops();
   }, []);
-  console.log(stops);
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     if (from && to) {
@@ -36,6 +45,23 @@ export default function Home(): JSX.Element {
         router.push("/login");
       });
   }
+  function handleFromChange(event: React.ChangeEvent<HTMLInputElement>): void {
+    const fromSearch = event.target.value;
+    setFrom(fromSearch);
+    console.log(fromSearch);
+    const filteredStops = stops.filter((stop: string) =>
+      stop.startsWith(fromSearch.toLowerCase())
+    );
+    setFilteredFrom(filteredStops);
+  }
+  function handleToChange(event: React.ChangeEvent<HTMLInputElement>): void {
+    const toSearch = event.target.value;
+    setTo(toSearch);
+    const filteredStops = stops.filter((stop: string) =>
+      stop.startsWith(toSearch.toLowerCase())
+    );
+    setFilteredTo(filteredStops);
+  }
   return (
     <main>
       <header>Tram Communication System</header>
@@ -45,17 +71,27 @@ export default function Home(): JSX.Element {
             type="text"
             placeholder="From"
             value={from}
-            onChange={(event) => setFrom(event.target.value)}
+            onChange={handleFromChange}
           />
         </div>
+        <ul>
+          {filteredFrom.map((stop: string) => (
+            <li key={stop}>{stop}</li>
+          ))}
+        </ul>
         <div>
           <input
             type="text"
             placeholder="To"
             value={to}
-            onChange={(event) => setTo(event.target.value)}
+            onChange={handleToChange}
           />
         </div>
+        <ul>
+          {filteredTo.map((stop: string) => (
+            <li key={stop}>{stop}</li>
+          ))}
+        </ul>
         <button type="submit">Find tram</button>
         <button onClick={(event) => handleLogout(event)}>Logout</button>
       </form>

@@ -1,11 +1,11 @@
 "use client";
-import React, { JSX, useEffect, useRef, useState } from "react";
+import React, { JSX, useEffect, useState } from "react";
 import axios from "axios";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import io from "socket.io-client";
+import { v4 as uuidv4 } from "uuid";
 
-const socket = io("http://localhost:5000");
 const routeIds = [2, 3, 5, 6, 8, 9, 10, 11, 12];
 const now = new Date();
 const year = now.getFullYear();
@@ -13,11 +13,14 @@ const routeStops = new Set();
 const day = String(now.getDate()).padStart(2, "0");
 const month = String(now.getMonth() + 1).padStart(2, "0");
 const formattedDate = `${year}-${month}-${day}`;
+const socket = io("http://localhost:5000");
+
 function compareTimes(arrivalTime: string): boolean {
   const timeToSeconds = (time: string) => {
     const [hours, minutes, seconds] = time.split(":").map(Number);
     return hours * 3600 + minutes * 60 + seconds;
   };
+
   const currentSeconds = timeToSeconds(
     `${String(now.getHours()).padStart(2, "0")}:${String(
       now.getMinutes()
@@ -37,6 +40,7 @@ const useFetchTramData = () => {
     "https://ckan.multimediagdansk.pl/dataset/c24aa637-3619-4dc2-a171-a23eec8f2172/resource/4c4025f0-01bf-41f7-a39f-d156d201b82b/download/stops.json";
 
   const delayUrl = "https://ckan2.multimediagdansk.pl/delays";
+
   useEffect(() => {
     const fetchTramData = async () => {
       try {
@@ -83,11 +87,14 @@ const useFetchTramData = () => {
                 stopName: stop?.stopName || "Unknown",
                 delay: delay,
               });
-              delayArray.push({
-                routeId: next.routeId,
-                stopName: stop.stopName,
-                delay: delay,
-              });
+              if (delay !== 0) {
+                delayArray.push({
+                  routeId: next.routeId,
+                  stopName: stop.stopName,
+                  delay: delay,
+                  arrivalTime: next.arrivalTime.split("T")[1],
+                });
+              }
               return acc;
             }, {});
 
@@ -97,6 +104,7 @@ const useFetchTramData = () => {
 
         const filteredRoutes = routes.filter((r) => r !== null);
         setRouteData(filteredRoutes);
+
         setTripDelays(delayArray);
       } catch (error) {
         console.error("Error fetching tram data:", error);
@@ -104,7 +112,14 @@ const useFetchTramData = () => {
         setIsLoading(false);
       }
     };
+
     fetchTramData();
+    const interval = setInterval(() => {
+      fetchTramData();
+    }, 10000);
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
 
   return { isLoading, routeData, tripDelays, routeStops };
@@ -115,12 +130,23 @@ function RouteDataTrimming(): JSX.Element {
   const router = useRouter();
   const from = searchParams.get("from");
   const to = searchParams.get("to");
-
+  const [delayData, setDelayData] = useState<string[]>([]);
+  const [isLive, setIsLive] = useState<boolean>(false);
   const { isLoading, routeData, tripDelays, routeStops } = useFetchTramData();
   console.log(routeStops);
-  if (routeStops) {
-    localStorage.setItem("stops", JSON.stringify(routeStops));
-  }
+  useEffect(() => {
+    if (isLive) {
+      socket.emit("delays", tripDelays);
+    }
+  }, [isLive, tripDelays]);
+  useEffect(() => {
+    if (isLive) {
+      socket.on("delays", (message) => {
+        setDelayData(message);
+      });
+    }
+  }, [isLive, delayData]);
+
   const validRoutes = routeData.filter(
     (route: any) => route !== null && Object.keys(route).length > 0
   );
@@ -139,8 +165,9 @@ function RouteDataTrimming(): JSX.Element {
   const reducedRoutes = cleanedRoutes.map((route) => {
     return route.reduce((acc: any, next: any) => {
       if (!acc[next.routeId]) {
-        acc[next.routeId.toString()] = [];
+        acc[next.routeId] = [];
       }
+
       const fromIndexes = next.stops.reduce((a: any, n: any, index: number) => {
         if (n.stopName.toLowerCase() === from?.toLowerCase()) {
           a.push(index);
@@ -157,7 +184,20 @@ function RouteDataTrimming(): JSX.Element {
       for (let i = 0; i < fromIndexes.length; i++) {
         if (fromIndexes[i] < toIndexes[i])
           acc[next.routeId].push(
-            next.stops.slice(fromIndexes[i], toIndexes[i] + 1)
+            next.stops
+              .slice(fromIndexes[i], toIndexes[i] + 1)
+              .reduce((a: any, n: any) => {
+                if (!a[n.routeId]) {
+                  a[n.routeId] = [];
+                }
+                a[n.routeId].push({
+                  stopId: n.stopId,
+                  arrivalTime: n.arrivalTime,
+                  stopName: n.stopName,
+                  delay: n.delay,
+                });
+                return a;
+              }, {})
           );
       }
       return acc;
@@ -166,31 +206,28 @@ function RouteDataTrimming(): JSX.Element {
   const trimmedData = reducedRoutes.map((route: any) =>
     route.filter((trip: any) => trip.length > 0)
   );
-  const finalData = trimmedData.map((route: any) =>
-    route.map((trip: any) =>
-      trip.filter((t: any) =>
-        t.some((arrival: any) => compareTimes(arrival.arrivalTime))
+  const finalData = trimmedData.map((routeArray: any) =>
+    routeArray.map((trip: any) =>
+      trip.filter((routeObject: any) =>
+        Object.values(routeObject).some((t: any) =>
+          t.some((arrival: any) => compareTimes(arrival.arrivalTime))
+        )
       )
     )
   );
+
   function handleClick(event: React.MouseEvent<HTMLButtonElement>): void {
     event.preventDefault();
     router.push("/home");
   }
-  // useEffect(() => {});
-  // function handleLive(event: React.MouseEvent<HTMLButtonElement>): void {
-  //   event.preventDefault();
-  //   useEffect(() => {
-  //     useFetchTramData();
-  //     const intervalId = setInterval(useFetchTramData, 30000);
-  //     return () => clearInterval(intervalId);
-  //   }, [useFetchTramData]);
-  //   useEffect(() => {
-  //     socket.emit("clientMessage", routeData);
-  //     socket.emit("delays", tripDelays);
-  //   }, [routeData]);
-
-  // }
+  function handleLive(event: React.MouseEvent<HTMLButtonElement>): void {
+    event.preventDefault();
+    if (isLive) {
+      setIsLive(false);
+    } else {
+      setIsLive(true);
+    }
+  }
   useEffect(() => {
     if (!localStorage.getItem("stops")) {
       if (routeStops) {
@@ -198,46 +235,51 @@ function RouteDataTrimming(): JSX.Element {
       }
     }
   });
-  const [delayData, setDelayData] = useState<any>([]);
-  useEffect(() => {
-    function handleDelays(): void {
-      socket.on("delays", (delays) => {
-        const delayedRoutes = tripDelays.filter(
-          (trip: any, index: number) => trip.delay !== delays[index].delay
-        );
-        const mappedDelays = delayedRoutes.map((trip: any) => {
-          if (trip.delay > 0) {
-            return (
-              <p>
-                The tram number {trip.routeId}, which was supposed to arrive at:{" "}
-                {trip.arrivalTime} will be delayed by {trip.delay} seconds.
-              </p>
-            );
-          }
-          if (trip.delay < 0) {
-            return (
-              <p>
-                The tram number {trip.routeId}, which was supposed to arrive at:{" "}
-                {trip.arrivalTime} will arrive earlier by {trip.delay} seconds.
-              </p>
-            );
-          }
-        });
-        setDelayData(mappedDelays);
-      });
-    }
-    handleDelays();
-  }, [delayData]);
   if (isLoading) return <div>Is loading</div>;
 
   return (
     <main>
       <h1>Dane tras</h1>
       <button onClick={(event) => handleClick(event)}>Home</button>
-      {/* <button onClick={(event) => handleLive(event)}>Live</button> */}
+      <button onClick={(event) => handleLive(event)}>Delays</button>
       <aside>
-        <header>Delays</header>
-        <div>{delayData.forEach((element: any) => element)}</div>
+        {isLive ? <header>Delays</header> : <></>}
+        <div>
+          {delayData ? (
+            delayData.map((currentDelay: any) => (
+              <p key={currentDelay}>{currentDelay}</p>
+            ))
+          ) : (
+            <></>
+          )}
+        </div>
+        <div>
+          {finalData.map((routeId: any) =>
+            routeId.map((trip: any, index: number) =>
+              trip.map((route: any) => (
+                <div key={uuidv4()}>
+                  <h3>{Object.keys(route)[index]}</h3>
+                  <div>
+                    {route[Object.keys(route)[index]].map(
+                      (stop: any, i: number) =>
+                        stop.delay ? (
+                          <p key={i}>
+                            Stop: {stop.stopName}, Arrival Time:{" "}
+                            {stop.arrivalTime}, delay: {Math.abs(stop.delay)}s
+                          </p>
+                        ) : (
+                          <p key={i}>
+                            Stop: {stop.stopName}, Arrival Time:{" "}
+                            {stop.arrivalTime}
+                          </p>
+                        )
+                    )}
+                  </div>
+                </div>
+              ))
+            )
+          )}
+        </div>
       </aside>
     </main>
   );

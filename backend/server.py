@@ -5,11 +5,13 @@ from database import Account, BlacklistedToken
 from flask_cors import CORS
 from hashFunction import hashFunction
 from session_token import createToken
-
+from datetime import datetime 
+from stops import stops
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}}, supports_credentials=True)
 socketio = SocketIO(app, cors_allowed_origins="http://localhost:3000")
 
+currentDelays = []
 @app.route('/create_account', methods=["POST"])
 def create_account():
     session = Session()
@@ -134,17 +136,29 @@ def logout():
     finally:
         session.close()
 
+@app.route('/stops', methods=['GET'])
+def stopData():
+    if stops:
+        return jsonify({"stops": stops}), 200
+    return jsonify({"message": "stops not found"}), 404
 
-@socketio.on('connect')
-def handle_connect():
-    print("Client connected")
-    emit('message', {'data': "Welcome"})
+@socketio.on('delays')
+def handle_delays(data):
+    global currentDelays
+    current_time = datetime.now().strftime('%H:%M:%S')
+    current_time_split = current_time.split(":")
+    if data:
+        for delay in data:
+            arrival = delay['arrivalTime'].split(":")
+            if int(arrival[0]) == int(current_time_split[0]) and  int(arrival[1]) == int(current_time_split[1]):
+                if delay['delay'] < 0:
+                    currentDelays.append(f"The Tram number {delay['routeId']} will arrive at an estimated time of {delay['arrivalTime']} at {delay['stopName']} {abs(delay['delay'])}s earlier")
+                else:
+                    currentDelays.append(f"The Tram number {delay['routeId']} will arrive at an estimated time of {delay['arrivalTime']} at {delay['stopName']} {delay['delay']}s later")
+        socketio.emit('delays', currentDelays[0:4])
+        currentDelays = []
+    
 
-@socketio.on('clientMessage')
-def handle_message(message):
-    if message:
-        print(f"Message acquired: {message}")
-        emit('message', {'data': "Message acquired"})
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)
