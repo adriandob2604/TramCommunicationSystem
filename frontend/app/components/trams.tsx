@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import io from "socket.io-client";
 import { v4 as uuidv4 } from "uuid";
+import { Suspense } from "react";
 
 const routeIds = [2, 3, 5, 6, 8, 9, 10, 11, 12];
 const now = new Date();
