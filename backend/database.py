@@ -18,5 +18,13 @@ class BlacklistedToken(Base):
     __tablename__ = "BlacklistedToken"
     id: Mapped[int] = mapped_column(primary_key=True)
     token: Mapped[str] = mapped_column(String(64))
+class DisplayMessages(Base):
+    __tablename__ = "DisplayMessages"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    message: Mapped[str] = mapped_column(String(64))
+class Notes(Base):
+    __tablename__ = "Notes"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    note: Mapped[str] = mapped_column(String(64))
 
 Base.metadata.create_all(engine)

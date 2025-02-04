@@ -34,21 +34,23 @@ export default function Register(): JSX.Element {
     ) {
       axios
         .post(`${url}/create_account`, { ...accountDetails })
-        .then((response) => {
-          console.log(response.status);
+        .then(() => {
           setAccountDetails(originalAccountState);
           alert("Account successfully created");
+          router.push("/login");
         })
-        .catch((err) => console.error(err));
+        .catch(() => console.log("Bad account info!"));
     } else {
       alert("No field can be blank!");
     }
   }
   return (
-    <>
-      <form onSubmit={(event) => handleSubmit(event)}>
-        <h2>Create Account</h2>
+    <div className="auth-container">
+      <form className="auth-form" onSubmit={handleSubmit}>
+        <h2 className="form-title">Create Account</h2>
+
         <input
+          className="form-input"
           type="text"
           value={accountDetails.name}
           placeholder="Enter name"
@@ -59,7 +61,9 @@ export default function Register(): JSX.Element {
             }))
           }
         />
+
         <input
+          className="form-input"
           type="text"
           value={accountDetails.surname}
           placeholder="Enter surname"
@@ -70,8 +74,10 @@ export default function Register(): JSX.Element {
             }))
           }
         />
+
         <input
-          type="text"
+          className="form-input"
+          type="email"
           value={accountDetails.email}
           placeholder="Enter email"
           onChange={(event) =>
@@ -81,8 +87,10 @@ export default function Register(): JSX.Element {
             }))
           }
         />
+
         <input
-          type="text"
+          className="form-input"
+          type="tel"
           value={accountDetails.phone_number}
           placeholder="Enter phone number"
           onChange={(event) =>
@@ -92,7 +100,9 @@ export default function Register(): JSX.Element {
             }))
           }
         />
+
         <input
+          className="form-input"
           type="text"
           value={accountDetails.username}
           placeholder="Enter username"
@@ -103,7 +113,9 @@ export default function Register(): JSX.Element {
             }))
           }
         />
+
         <input
+          className="form-input"
           type="password"
           value={accountDetails.password}
           placeholder="Enter password"
@@ -114,10 +126,18 @@ export default function Register(): JSX.Element {
             }))
           }
         />
-        <button type="submit">Register</button>
+
+        <button className="submit-btn" type="submit">
+          Register
+        </button>
       </form>
-      <h3>Already have an account?</h3>
-      <button onClick={() => router.push("/login")}>Login</button>
-    </>
+
+      <div className="auth-redirect">
+        <h3 className="redirect-text">Already have an account?</h3>
+        <button className="login-btn" onClick={() => router.push("/login")}>
+          Login
+        </button>
+      </div>
+    </div>
   );
 }

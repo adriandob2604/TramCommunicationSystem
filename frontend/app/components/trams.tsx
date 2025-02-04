@@ -13,7 +13,8 @@ const routeStops = new Set();
 const day = String(now.getDate()).padStart(2, "0");
 const month = String(now.getMonth() + 1).padStart(2, "0");
 const formattedDate = `${year}-${month}-${day}`;
-const socket = io("http://localhost:5000");
+const url = "http://localhost:5000";
+const socket = io(url);
 
 function compareTimes(arrivalTime: string): boolean {
   const timeToSeconds = (time: string) => {
@@ -33,7 +34,7 @@ const useFetchTramData = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [routeData, setRouteData] = useState<any[]>([]);
   const [tripDelays, setTripDelays] = useState<any[]>([]);
-
+  const [positions, setPosition] = useState<any[]>([]);
   const url =
     "https://ckan.multimediagdansk.pl/dataset/c24aa637-3619-4dc2-a171-a23eec8f2172/resource/a023ceb0-8085-45f6-8261-02e6fcba7971/download/stoptimes.json";
   const stopsUrl =
@@ -52,6 +53,7 @@ const useFetchTramData = () => {
           ]);
 
         const delayArray: any[] = [];
+        const tramPositions: any[] = [];
         const stopsData = stopsResponse.data[formattedDate]?.stops || [];
 
         const routes = await Promise.all(
@@ -95,6 +97,14 @@ const useFetchTramData = () => {
                   arrivalTime: next.arrivalTime.split("T")[1],
                 });
               }
+              tramPositions.push({
+                routeId: next.routeId,
+                stopName: next.stopName,
+                delay: delay,
+                arrivalTime: next.arrivalTime.split("T")[1],
+                lat: next.stopLat,
+                lon: next.stopLon,
+              });
               return acc;
             }, {});
 
@@ -104,8 +114,8 @@ const useFetchTramData = () => {
 
         const filteredRoutes = routes.filter((r) => r !== null);
         setRouteData(filteredRoutes);
-
         setTripDelays(delayArray);
+        setPosition(tramPositions);
       } catch (error) {
         console.error("Error fetching tram data:", error);
       } finally {
@@ -122,7 +132,7 @@ const useFetchTramData = () => {
     };
   }, []);
 
-  return { isLoading, routeData, tripDelays, routeStops };
+  return { isLoading, routeData, tripDelays, positions };
 };
 
 function RouteDataTrimming(): JSX.Element {
@@ -131,21 +141,34 @@ function RouteDataTrimming(): JSX.Element {
   const from = searchParams.get("from");
   const to = searchParams.get("to");
   const [delayData, setDelayData] = useState<string[]>([]);
+  const [positionData, setPositionData] = useState<string>();
   const [isLive, setIsLive] = useState<boolean>(false);
-  const { isLoading, routeData, tripDelays, routeStops } = useFetchTramData();
-  console.log(routeStops);
+  const [isFollowing, setIsFollowing] = useState<boolean>(false);
+  const [currentRoute, setCurrentRoute] = useState({});
+  const { isLoading, routeData, tripDelays, positions } = useFetchTramData();
   useEffect(() => {
     if (isLive) {
       socket.emit("delays", tripDelays);
-    }
-  }, [isLive, tripDelays]);
-  useEffect(() => {
-    if (isLive) {
       socket.on("delays", (message) => {
         setDelayData(message);
       });
     }
-  }, [isLive, delayData]);
+    return () => {
+      socket.off("positions");
+    };
+  }, [isLive, tripDelays]);
+
+  useEffect(() => {
+    if (isFollowing) {
+      socket.emit("positions", currentRoute);
+      socket.on("positions", (message) => {
+        setPositionData(message);
+      });
+    }
+    return () => {
+      socket.off("positions");
+    };
+  }, [isFollowing, currentRoute, positionData]);
 
   const validRoutes = routeData.filter(
     (route: any) => route !== null && Object.keys(route).length > 0
@@ -220,59 +243,61 @@ function RouteDataTrimming(): JSX.Element {
     event.preventDefault();
     router.push("/home");
   }
-  function handleLive(event: React.MouseEvent<HTMLButtonElement>): void {
-    event.preventDefault();
-    if (isLive) {
-      setIsLive(false);
-    } else {
-      setIsLive(true);
-    }
-  }
-  useEffect(() => {
-    if (!localStorage.getItem("stops")) {
-      if (routeStops) {
-        localStorage.setItem("stops", JSON.stringify(routeStops));
-      }
-    }
-  });
+
   if (isLoading) return <div>Is loading</div>;
 
   return (
-    <main>
-      <h1>Dane tras</h1>
-      <button onClick={(event) => handleClick(event)}>Home</button>
-      <button onClick={(event) => handleLive(event)}>Delays</button>
-      <aside>
-        {isLive ? <header>Delays</header> : <></>}
-        <div>
-          {delayData ? (
-            delayData.map((currentDelay: any) => (
-              <p key={currentDelay}>{currentDelay}</p>
-            ))
-          ) : (
-            <></>
-          )}
-        </div>
-        <div>
+    <main className="main-container">
+      <h1 className="page-title">Dane tras</h1>
+      <button className="home-btn" onClick={handleClick}>
+        Home
+      </button>
+      <button
+        className="delays-btn"
+        onClick={() => setIsLive((previous) => !previous)}
+      >
+        Delays
+      </button>
+
+      <aside className="sidebar">
+        {isLive ? (
+          <>
+            <header className="delay-header">Delays</header>
+            <div className="delay-list">
+              {delayData?.map((currentDelay: any, index: number) => (
+                <p key={`${currentDelay}-${index}`} className="delay-item">
+                  {currentDelay}
+                </p>
+              ))}
+            </div>
+          </>
+        ) : (
+          <></>
+        )}
+
+        <div className="route-list">
+          {isFollowing ? <>Skibidi: {positionData}</> : <></>}
           {finalData.map((routeId: any) =>
             routeId.map((trip: any, index: number) =>
               trip.map((route: any) => (
-                <div key={uuidv4()}>
-                  <h3>{Object.keys(route)[index]}</h3>
-                  <div>
+                <div key={uuidv4()} className="route-card">
+                  <h3 className="route-title">{Object.keys(route)[index]}</h3>
+
+                  <div className="stop-list">
                     {route[Object.keys(route)[index]].map(
-                      (stop: any, i: number) =>
-                        stop.delay ? (
-                          <p key={i}>
-                            Stop: {stop.stopName}, Arrival Time:{" "}
-                            {stop.arrivalTime}, delay: {Math.abs(stop.delay)}s
-                          </p>
-                        ) : (
-                          <p key={i}>
-                            Stop: {stop.stopName}, Arrival Time:{" "}
-                            {stop.arrivalTime}
-                          </p>
-                        )
+                      (stop: any, i: number) => (
+                        <p
+                          key={i}
+                          className={`stop-item ${
+                            stop.delay ? "stop-item-delayed" : ""
+                          }`}
+                        >
+                          Stop: {stop.stopName}, Arrival Time:{" "}
+                          {stop.arrivalTime}
+                          {", "}
+                          {stop.delay ? ` delay: ${Math.abs(stop.delay)}s` : ""}
+                        </p>
+                      )
                     )}
                   </div>
                 </div>

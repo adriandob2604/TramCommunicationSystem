@@ -1,40 +1,45 @@
 "use client";
-import React, { JSX, useState } from "react";
+import React, { JSX, useState, createContext } from "react";
 import axios from "axios";
+
 import { useRouter } from "next/navigation";
+export interface LoginInfo {
+  username: string;
+  password: string;
+}
 export default function Login(): JSX.Element {
   const router = useRouter();
   const url = "http://localhost:5000";
 
-  interface LoginInfo {
-    username: string;
-    password: string;
-  }
   const [login, setLogin] = useState<LoginInfo>({ username: "", password: "" });
-
   function handleLogin(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     if (login.username && login.password) {
       axios
         .post(`${url}/login`, { ...login }, { withCredentials: true })
         .then((response) => {
+          const data = response.data;
+          const accountId = data.id;
+          sessionStorage.setItem("userId", JSON.stringify(accountId));
           console.log(response.status);
           alert("Successfully logged in!");
           router.push("/home");
         })
-        .catch((err) => {
+        .catch(() => {
           alert("Try again");
-          console.error(err);
+          console.log("Bad login info");
         });
     } else {
       alert("No field should be empty");
     }
   }
   return (
-    <main>
-      <h2>Login</h2>
-      <form onSubmit={(event) => handleLogin(event)}>
+    <div className="auth-container">
+      <form className="auth-form" onSubmit={handleLogin}>
+        <h2 className="form-title">Login</h2>
+
         <input
+          className="form-input"
           type="text"
           placeholder="Enter username"
           value={login.username}
@@ -44,8 +49,11 @@ export default function Login(): JSX.Element {
               username: event.target.value,
             }))
           }
+          required
         />
+
         <input
+          className="form-input"
           type="password"
           placeholder="Enter password"
           value={login.password}
@@ -55,11 +63,20 @@ export default function Login(): JSX.Element {
               password: event.target.value,
             }))
           }
+          required
         />
-        <button type="submit">Log in</button>
+
+        <button className="submit-btn" type="submit">
+          Log in
+        </button>
       </form>
-      <h3>Don't have an account?</h3>
-      <button onClick={() => router.push("/register")}>Register</button>
-    </main>
+
+      <div className="auth-redirect">
+        <h3 className="redirect-text">Don't have an account?</h3>
+        <button className="login-btn" onClick={() => router.push("/register")}>
+          Register
+        </button>
+      </div>
+    </div>
   );
 }
