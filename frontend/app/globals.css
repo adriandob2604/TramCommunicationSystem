@@ -12,6 +12,7 @@
 body {
   background-color: var(--bg-dark);
   color: var(--text-primary);
+  user-select: none;
 }
 
 .home-container {
@@ -46,7 +47,7 @@ body {
 
 .autocomplete-input {
   width: 100%;
-  padding: 1rem;
+  padding-block: 1rem;
   background-color: var(--bg-medium);
   color: var(--text-primary);
   border: 2px solid var(--bg-light);
@@ -54,6 +55,7 @@ body {
   font-size: 1rem;
   transition: all 0.3s ease;
 }
+
 
 .autocomplete-input:focus {
   outline: none;
@@ -297,6 +299,10 @@ body {
 }
 
 .auth-form {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   background-color: var(--bg-medium);
   padding: 2.5rem;
   border-radius: 12px;
@@ -315,6 +321,7 @@ body {
 }
 
 .form-input {
+  
   width: 100%;
   padding: 1rem;
   margin-bottom: 1.5rem;

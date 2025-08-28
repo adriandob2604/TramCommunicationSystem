@@ -18,27 +18,39 @@ message_array = []
 def create_account():
     session = Session()
     try:
-        account_information = request.get_json()
-        required_fields = ["username", "password", "name", "surname", "email", "phone_number"]
-        if not all(field in account_information for field in required_fields):
-            return jsonify({"message": "Missing account information"}), 400
+        account_information = request.get_json(silent=True)
+        if not isinstance(account_information, dict):
+            return jsonify({"message": "Invalid JSON body"}), 400
 
-        username = account_information["username"]
+        required_fields = ["username", "password", "name", "surname", "email", "phone_number"]
+        missing = [f for f in required_fields if not account_information.get(f)]
+        if missing:
+            return jsonify({"message": f"Missing account information: {', '.join(missing)}"}), 400
+
+        username = account_information["username"].strip()
         password = account_information["password"]
-        name = account_information["name"]
-        surname = account_information["surname"]
-        email = account_information["email"]
-        phone_number = account_information["phone_number"]
+        name = account_information["name"].strip()
+        surname = account_information["surname"].strip()
+        email = account_information["email"].strip()
+        phone_number = account_information["phone_number"].strip()
 
         if session.query(Account).filter((Account.username == username) | (Account.email == email)).first():
             return jsonify({"message": "Account with this username or email already exists"}), 400
 
         hashed_password = hashFunction(password)
-        new_account = Account(username=username, password=hashed_password, name=name, surname=surname, email=email, phone_number=phone_number)
+        new_account = Account(
+            username=username,
+            password=hashed_password,
+            name=name,
+            surname=surname,
+            email=email,
+            phone_number=phone_number
+        )
         session.add(new_account)
         session.commit()
         return jsonify({"message": "Account successfully created"}), 201
     except Exception as e:
+        session.rollback()
         return jsonify({"message": f"An error occurred: {str(e)}"}), 500
     finally:
         session.close()

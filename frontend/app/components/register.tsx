@@ -21,27 +21,40 @@ export default function Register(): JSX.Element {
   };
   const [accountDetails, setAccountDetails] =
     useState<AccountDetails>(originalAccountState);
-  const url = "http://localhost:5000";
+  const url = "http://127.0.0.1:5000";
   const router = useRouter();
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (
-      accountDetails.name &&
-      accountDetails.surname &&
-      accountDetails.email &&
-      accountDetails.name &&
-      accountDetails.password
-    ) {
-      axios
-        .post(`${url}/create_account`, { ...accountDetails })
-        .then(() => {
-          setAccountDetails(originalAccountState);
-          alert("Account successfully created");
-          router.push("/login");
-        })
-        .catch(() => console.log("Bad account info!"));
-    } else {
+
+    const allFilled = Object.values(accountDetails).every(
+      (v) => v.trim() !== ""
+    );
+    if (!allFilled) {
       alert("No field can be blank!");
+      return;
+    }
+
+    try {
+      await axios.post(
+        `${url}/create_account`,
+        { ...accountDetails },
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+      setAccountDetails(originalAccountState);
+      alert("Account successfully created");
+      router.push("/login");
+    } catch (error: any) {
+      console.error(
+        "Register failed:",
+        error?.response?.status,
+        error?.response?.data || error?.message
+      );
+      alert(
+        error?.response?.data?.message ||
+          "Registration failed. Check console for details."
+      );
     }
   }
   return (

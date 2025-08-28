@@ -83,20 +83,22 @@ export default function Home(): JSX.Element {
             value={from}
             onChange={handleFromChange}
           />
-          <ul className="suggestions-list">
-            {filteredFrom.map((stop: string) => (
-              <li
-                className="suggestion-item"
-                key={stop}
-                onClick={() => {
-                  setFrom(stop);
-                  setFilteredFrom([]);
-                }}
-              >
-                {stop}
-              </li>
-            ))}
-          </ul>
+          {from && (
+            <ul className="suggestions-list">
+              {filteredFrom.map((stop: string) => (
+                <li
+                  className="suggestion-item"
+                  key={stop}
+                  onClick={() => {
+                    setFrom(stop);
+                    setFilteredFrom([]);
+                  }}
+                >
+                  {stop}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div className="input-group">
@@ -107,20 +109,22 @@ export default function Home(): JSX.Element {
             value={to}
             onChange={handleToChange}
           />
-          <ul className="suggestions-list">
-            {filteredTo.map((stop: string) => (
-              <li
-                className="suggestion-item"
-                key={stop}
-                onClick={() => {
-                  setTo(stop);
-                  setFilteredTo([]);
-                }}
-              >
-                {stop}
-              </li>
-            ))}
-          </ul>
+          {to && (
+            <ul className="suggestions-list">
+              {filteredTo.map((stop: string) => (
+                <li
+                  className="suggestion-item"
+                  key={stop}
+                  onClick={() => {
+                    setTo(stop);
+                    setFilteredTo([]);
+                  }}
+                >
+                  {stop}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div className="button-group">

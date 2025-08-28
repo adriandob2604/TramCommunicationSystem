@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import io from "socket.io-client";
 import { v4 as uuidv4 } from "uuid";
-import { Suspense } from "react";
 
 const routeIds = [2, 3, 5, 6, 8, 9, 10, 11, 12];
 const now = new Date();
@@ -41,18 +40,13 @@ const useFetchTramData = () => {
   const stopsUrl =
     "https://ckan.multimediagdansk.pl/dataset/c24aa637-3619-4dc2-a171-a23eec8f2172/resource/4c4025f0-01bf-41f7-a39f-d156d201b82b/download/stops.json";
 
-  const delayUrl = "https://ckan2.multimediagdansk.pl/delays";
-
   useEffect(() => {
     const fetchTramData = async () => {
       try {
-        const [stoptimesResponse, stopsResponse, delayResponse] =
-          await Promise.all([
-            axios.get(url),
-            axios.get(stopsUrl),
-            axios.get(delayUrl),
-          ]);
-
+        const [stoptimesResponse, stopsResponse] = await Promise.all([
+          axios.get(url),
+          axios.get(stopsUrl),
+        ]);
         const delayArray: any[] = [];
         const tramPositions: any[] = [];
         const stopsData = stopsResponse.data[formattedDate]?.stops || [];
@@ -61,47 +55,25 @@ const useFetchTramData = () => {
           routeIds.map(async (id) => {
             const routeUrl = stoptimesResponse.data[id]?.[0];
             if (!routeUrl) return null;
-
             const { data } = await axios.get(routeUrl);
             const result = data.stopTimes.reduce((acc: any, next: any) => {
               const stop = stopsData.find((s: any) => s.stopId === next.stopId);
               routeStops.add(stop?.stopName);
-              const delayData = delayResponse.data[stop.stopId];
-              const delayDataFiltered = delayData.delay.find(
-                (del: any) =>
-                  del.estimatedTime ===
-                  next.arrivalTime.split("T")[1]?.slice(0, 5)
-              );
-              const delay = delayDataFiltered
-                ? delayDataFiltered.delayInSeconds
-                : 0;
-
               if (!acc[next.tripId]) {
                 acc[next.tripId] = {
                   routeId: next.routeId,
                   stops: [],
                 };
               }
-
               acc[next.tripId].stops.push({
                 routeId: next.routeId,
                 stopId: next.stopId,
                 arrivalTime: next.arrivalTime.split("T")[1],
                 stopName: stop?.stopName || "Unknown",
-                delay: delay,
               });
-              if (delay !== 0) {
-                delayArray.push({
-                  routeId: next.routeId,
-                  stopName: stop.stopName,
-                  delay: delay,
-                  arrivalTime: next.arrivalTime.split("T")[1],
-                });
-              }
               tramPositions.push({
                 routeId: next.routeId,
                 stopName: next.stopName,
-                delay: delay,
                 arrivalTime: next.arrivalTime.split("T")[1],
                 lat: next.stopLat,
                 lon: next.stopLon,
@@ -112,6 +84,7 @@ const useFetchTramData = () => {
             return result;
           })
         );
+        console.log(routes);
 
         const filteredRoutes = routes.filter((r) => r !== null);
         setRouteData(filteredRoutes);
@@ -123,7 +96,6 @@ const useFetchTramData = () => {
         setIsLoading(false);
       }
     };
-
     fetchTramData();
     const interval = setInterval(() => {
       fetchTramData();
@@ -246,7 +218,7 @@ function RouteDataTrimming(): JSX.Element {
   }
 
   if (isLoading) return <div>Is loading</div>;
-
+  console.log(finalData);
   return (
     <main className="main-container">
       <h1 className="page-title">Dane tras</h1>
@@ -277,13 +249,11 @@ function RouteDataTrimming(): JSX.Element {
         )}
 
         <div className="route-list">
-          {isFollowing ? <>Skibidi: {positionData}</> : <></>}
           {finalData.map((routeId: any) =>
             routeId.map((trip: any, index: number) =>
               trip.map((route: any) => (
                 <div key={uuidv4()} className="route-card">
                   <h3 className="route-title">{Object.keys(route)[index]}</h3>
-
                   <div className="stop-list">
                     {route[Object.keys(route)[index]].map(
                       (stop: any, i: number) => (
